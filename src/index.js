@@ -1,3 +1,4 @@
+const {request} = require('express');
 const express = require('express');
 const {v4: uuidV4} = require('uuid');
 
@@ -20,6 +21,20 @@ const customers = [];
  * statement - []
  */
 
+// Middlewares
+function verifyExistsAccontCPF(request, response, next) {
+  const {cpf} = request.header;
+
+  const customer = customers.find((customer) => customer.cpf === cpf);
+
+  if (!customer) {
+    return response.status(400).json({error: 'Customer not found'});
+  }
+
+  request.customer = customer;
+
+  return next();
+}
 
 app.post('/account', (request, response) => {
   const {cpf, name} = request.body;
@@ -29,7 +44,7 @@ app.post('/account', (request, response) => {
   );
 
   if (customerAwreadyExists) {
-    return response.status(400).json({error: "Customer Already Exists!"})
+    return response.status(400).json({error: 'Customer Already Exists!'});
   }
 
   customers.push({
@@ -41,16 +56,25 @@ app.post('/account', (request, response) => {
   return response.status(201).send();
 });
 
-app.get('/statement/:cpf', (request, response) => {
-  const { cpf } = request.params;
-
-  const customer = customers.find( customer => customer.cpf === cpf)
-
-  if (!customer) {
-    return response.status(400).json({error: "Customer not found"})
-  }
-
+app.get('/statement/:cpf', verifyExistsAccontCPF, (request, response) => {
+  const {customer} = request;
   return response.json(customer.statement);
+});
+
+app.post('/deposit', verifyExistsAccontCPF, (request, response) => {
+  const {description, amount} = request.body;
+
+  const {customer} = request;
+  const statementOperation = {
+    description,
+    amount,
+    created_at: new Date(),
+    type: 'credit',
+  };
+
+  customer.statement.push(statementOperation);
+
+  return response.status(201).send();
 });
 
 // app.put('/courses/:id', (request, response) => {
@@ -70,3 +94,6 @@ app.get('/statement/:cpf', (request, response) => {
 //Indicando qual porta eu desejo usar para inicializar o projeto.
 // Neste caso foi usada a porta 3333
 app.listen(3333);
+
+
+/** Paramos no capitulo 4 video 7 - vamos para o 8 */
