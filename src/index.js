@@ -125,6 +125,21 @@ app.get('/statement/date', verifyExistsAccountCPF, (request, response) => {
   return response.json(statement);
 });
 
+app.put('/account', verifyExistsAccountCPF, (request, response) => {
+  const {name} = request.body;
+  const {customer} = request;
+
+  customer.name = name;
+
+  return response.status(201).send();
+});
+
+app.get('/account', verifyExistsAccountCPF, (request, response) => {
+ const { customer } = request
+
+  return response.json(customer)
+})
+
 //Indicando qual porta eu desejo usar para inicializar o projeto.
 // Neste caso foi usada a porta 3333
 app.listen(3333);
