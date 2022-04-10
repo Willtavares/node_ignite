@@ -1,4 +1,5 @@
 const {request} = require('express');
+const {response} = require('express');
 const express = require('express');
 const {v4: uuidV4} = require('uuid');
 
@@ -22,7 +23,7 @@ const customers = [];
  */
 
 // Middlewares
-function verifyExistsAccontCPF(request, response, next) {
+function verifyExistsAccountCPF(request, response, next) {
   const {cpf} = request.header;
 
   const customer = customers.find((customer) => customer.cpf === cpf);
@@ -34,6 +35,18 @@ function verifyExistsAccontCPF(request, response, next) {
   request.customer = customer;
 
   return next();
+}
+
+function getBalance(statement) {
+  const balance = statement.reduce((acc, operation) => {
+    if (operation.type == 'credit') {
+      return acc + operation.amount;
+    } else {
+      return acc - operation.amount;
+    }
+  }, 0);
+
+  return balance;
 }
 
 app.post('/account', (request, response) => {
@@ -56,12 +69,12 @@ app.post('/account', (request, response) => {
   return response.status(201).send();
 });
 
-app.get('/statement/:cpf', verifyExistsAccontCPF, (request, response) => {
+app.get('/statement/:cpf', verifyExistsAccountCPF, (request, response) => {
   const {customer} = request;
   return response.json(customer.statement);
 });
 
-app.post('/deposit', verifyExistsAccontCPF, (request, response) => {
+app.post('/deposit', verifyExistsAccountCPF, (request, response) => {
   const {description, amount} = request.body;
 
   const {customer} = request;
@@ -77,23 +90,41 @@ app.post('/deposit', verifyExistsAccontCPF, (request, response) => {
   return response.status(201).send();
 });
 
-// app.put('/courses/:id', (request, response) => {
-//   const params = request.params;
-//   console.log(params);
-//   return response.json(['Curso 6', 'Curso 2', 'Curso 3', 'Curso 4', 'Curso 5']);
-// });
+app.post('/withdraw', verifyExistsAccountCPF, (request, response) => {
+  const {amount} = request.body;
+  const {customer} = request;
 
-// app.path('/courses/id', (request, response) => {
-//   return response.json(['Curso 6', 'Curso 9', 'Curso 3', 'Curso 4', 'Curso 5']);
-// });
+  const balance = getBalance(customer.statement);
 
-// app.delete('/courses/:id', (request, response) => {
-//   return response.json(['Curso 6', 'Curso 3', 'Curso 4', 'Curso 5']);
-// });
+  if (balance < amount) {
+    return response.status(400).json({error: 'Insufficient Funds'});
+  }
+
+  const statementOperation = {
+    amount,
+    created_at: new Date(),
+    type: 'debit',
+  };
+
+  customer.statement.push(statementOperation);
+
+  return response.status(201).send();
+});
+
+app.get('/statement/date', verifyExistsAccountCPF, (request, response) => {
+  const {customer} = request;
+  const {date} = request.query;
+
+  const dateFormat = new Date(date + ' 00:00');
+  const statement = customer.statement.filter(
+    (statement) =>
+      statement.created_at.toDateString() ===
+      new Date(dateFormat).toDateString()
+  );
+
+  return response.json(statement);
+});
 
 //Indicando qual porta eu desejo usar para inicializar o projeto.
 // Neste caso foi usada a porta 3333
 app.listen(3333);
-
-
-/** Paramos no capitulo 4 video 7 - vamos para o 8 */
